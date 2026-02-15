@@ -1,0 +1,109 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meal Planner</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    p { margin: 0 0 16px; color: #333; }
+    textarea { width: 100%; min-height: 160px; padding: 12px; font-size: 14px; line-height: 1.4; }
+    .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+    button { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .hint { font-size: 12px; color: #666; margin-top: 8px; }
+    pre { white-space: pre-wrap; word-wrap: break-word; background: #f6f6f6; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-top: 16px; }
+    .error { color: #b00020; }
+  </style>
+</head>
+
+<body>
+  <h1>Meal Planner</h1>
+  <p>Enter dietary constraints and ingredients in plain text (any format).</p>
+
+  <textarea id="input" placeholder="Example:
+vegan, nut-free, 1 day, breakfast/lunch/dinner
+ingredients: tofu, tomato, pasta, spinach
+time: 20 minutes per meal"></textarea>
+
+  <div class="row">
+    <button id="btn">Generate Menu</button>
+    <span id="status" class="hint"></span>
+  </div>
+
+  <div class="hint">
+    Endpoint: <code id="endpointLabel">/api/menu</code> (change in code if needed)
+  </div>
+
+  <pre id="output"></pre>
+
+  <script>
+    // If your frontend is served by the SAME Cloud Run service, keep this as "/api/menu".
+    // If hosted elsewhere (e.g., Cloud Storage static site), set this to your full backend URL:
+    // const API_URL = "https://YOUR_CLOUD_RUN_URL/api/menu";
+    const API_URL = "/api/menu";
+
+    const inputEl = document.getElementById("input");
+    const btnEl = document.getElementById("btn");
+    const outEl = document.getElementById("output");
+    const statusEl = document.getElementById("status");
+    document.getElementById("endpointLabel").textContent = API_URL;
+
+    function setLoading(isLoading) {
+      btnEl.disabled = isLoading;
+      statusEl.textContent = isLoading ? "Generating..." : "";
+    }
+
+    async function generateMenu() {
+      const text = inputEl.value.trim();
+      outEl.classList.remove("error");
+
+      if (!text) {
+        outEl.textContent = "Please enter constraints and ingredients.";
+        outEl.classList.add("error");
+        return;
+      }
+
+      setLoading(true);
+      outEl.textContent = "";
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: text })
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!res.ok) {
+          const errText = contentType.includes("application/json")
+            ? JSON.stringify(await res.json(), null, 2)
+            : await res.text();
+          throw new Error(errText || `Request failed (${res.status})`);
+        }
+
+        // Backend can return either plain text or JSON.
+        if (contentType.includes("application/json")) {
+          const data = await res.json();
+          outEl.textContent = JSON.stringify(data, null, 2);
+        } else {
+          outEl.textContent = await res.text();
+        }
+      } catch (e) {
+        outEl.textContent = `Error: ${e.message}`;
+        outEl.classList.add("error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    btnEl.addEventListener("click", generateMenu);
+    inputEl.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") generateMenu();
+    });
+  </script>
+</body>
+</html>
