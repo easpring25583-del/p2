@@ -65,12 +65,22 @@ SECRET_CONFIG_TEXT = read_secret_payload(SECRET_CONFIG) if SECRET_CONFIG else No
 # vertexai.init(project=PROJECT_ID, location=LOCATION)
 # model = GenerativeModel(MODEL_NAME)
 
+# model = None
+# if not DEBUG_STUB:
+#     if not PROJECT_ID:
+#         raise RuntimeError("Missing env var PROJECT_ID")
+#     vertexai.init(project=PROJECT_ID, location=LOCATION)
+#     model = GenerativeModel(MODEL_NAME)
+
 model = None
 if not DEBUG_STUB:
     if not PROJECT_ID:
-        raise RuntimeError("Missing env var PROJECT_ID")
-    vertexai.init(project=PROJECT_ID, location=LOCATION)
-    model = GenerativeModel(MODEL_NAME)
+        # Don't crash the container; fall back to stub mode.
+        DEBUG_STUB = True
+    else:
+        vertexai.init(project=PROJECT_ID, location=LOCATION)
+        model = GenerativeModel(MODEL_NAME)
+
 
 # -----------------------------
 # Tool (EC2)
@@ -338,3 +348,4 @@ User input:
 #         raise
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
+
